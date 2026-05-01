@@ -110,9 +110,39 @@ export default function Demo() {
 
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
+  const [balance, setBalance] = useState(0);
+const [usdcBalance, setUsdcBalance] = useState(0);
+
+const fetchBalance = async (pubkey) => {
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  const lamports = await connection.getBalance(pubkey);
+  const sol = lamports / 1_000_000_000;
+
+  setBalance(sol.toFixed(2));
+};
+
+// 🔥 TARO DI SINI
+const fetchUSDC = async (pubkey) => {
+  try {
+    const connection = new Connection(clusterApiUrl("devnet"));
+
+    const ata = await getAssociatedTokenAddress(
+      USDC_MINT,
+      pubkey
+    );
+
+    const acc = await connection.getTokenAccountBalance(ata);
+
+    setUsdcBalance(acc.value.uiAmount || 0);
+  } catch {
+    setUsdcBalance(0);
+  }
+};
 
   const [escrow, setEscrow] = useState(0);
   const [charging, setCharging] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const [showPopup, setShowPopup] = useState(false);
   const [refundValue, setRefundValue] = useState("");
@@ -143,78 +173,76 @@ const short = walletAddress
   const getProvider = () => window?.phantom?.solana;
 
   const connectWallet = async () => {
-    const provider = getProvider();
-    const res = await provider.connect();
-    setWalletConnected(true);
-    setWalletAddress(res.publicKey.toString());
-  };
+  const provider = getProvider();
+  const res = await provider.connect();
+
+  setWalletConnected(true);
+  setWalletAddress(res.publicKey.toString());
+  fetchBalance(res.publicKey);
+};
 
   const safeTarget = Math.max(targetBattery, battery);
   const needed = ((safeTarget - battery) / 100) * capacity;
   const total = needed * price;
 
-  const startCharging = async () => {
-    if (!method) {
-      setRefundValue("Pilih metode dulu");
-      setShowPopup(true);
-      return;
+ const startCharging = async () => {
+
+  if (!method) {
+    setRefundValue("Pilih metode dulu");
+    setShowPopup(true);
+    return;
+  }
+
+  // 🔥 QRIS HARUS DI CEK DULU
+  if (method === "qris") {
+    setShowQR(true);
+    return; // ⛔ STOP, jangan lanjut ke Phantom
+  }
+
+  if (!walletConnected) {
+    setRefundValue("Connect wallet dulu");
+    setShowPopup(true);
+    return;
+  }
+
+  try {
+    const provider = getProvider();
+    setTxStatus("pending");
+
+    const escrowAmount = total / 15500;
+
+    // 🔥 INI CUMA UNTUK WALLET
+    await sendUSDC(provider, escrowAmount);
+    fetchBalance(provider.publicKey);
+    fetchUSDC(provider.publicKey);
+
+    setEscrow(escrowAmount);
+    setTxStatus("success");
+
+    setCharging(true);
+    setStep(3);
+
+  } catch (err) {
+    console.error("ERROR FULL:", err);
+
+    let message = "Transaksi gagal";
+
+    if (err.message?.includes("insufficient funds")) {
+      message = "Saldo USDC tidak cukup";
+    } else if (err.message?.includes("TokenAccountNotFoundError")) {
+      message = "Wallet belum siap (USDC belum pernah diterima)";
+    } else if (err.message?.includes("invalid account data")) {
+      message = "Error akun token (coba refresh / ganti wallet)";
+    } else if (err.message?.includes("User rejected")) {
+      message = "Transaksi dibatalkan user";
+    } else if (err.message) {
+      message = err.message;
     }
 
-    if (!walletConnected) {
-      setRefundValue("Connect wallet dulu");
-      setShowPopup(true);
-      return;
-    }
-
-    try {
-      const provider = getProvider();
-      setTxStatus("pending");
-
-      const escrowAmount = total / 15500;
-
-      await sendUSDC(provider, escrowAmount);
-
-      setEscrow(escrowAmount);
-      setTxStatus("success");
-
-      setCharging(true);
-      setStep(3);
-
-    } catch (err) {
-  console.error("ERROR FULL:", err);
-
-  let message = "Transaksi gagal";
-
-  // ❌ saldo tidak cukup
-  if (err.message?.includes("insufficient funds")) {
-    message = "Saldo USDC tidak cukup";
+    setRefundValue(message);
+    setShowPopup(true);
   }
-
-  // ❌ ATA belum ada
-  else if (err.message?.includes("TokenAccountNotFoundError")) {
-    message = "Wallet belum siap (USDC belum pernah diterima)";
-  }
-
-  // ❌ invalid account
-  else if (err.message?.includes("invalid account data")) {
-    message = "Error akun token (coba refresh / ganti wallet)";
-  }
-
-  // ❌ user cancel
-  else if (err.message?.includes("User rejected")) {
-    message = "Transaksi dibatalkan user";
-  }
-
-  // ❌ fallback
-  else if (err.message) {
-    message = err.message;
-  }
-
-  setRefundValue(message);
-  setShowPopup(true);
-}
-  };
-
+};
   useEffect(() => {
     if (!charging) return;
 
@@ -245,10 +273,70 @@ const short = walletAddress
 
     return () => clearInterval(i);
   }, [charging, kwh, escrow]);
+  useEffect(() => {
+  if (!walletConnected) return;
+
+  const interval = setInterval(() => {
+    const provider = getProvider();
+    if (provider?.publicKey) {
+      fetchBalance(provider.publicKey);
+      fetchUSDC(provider.publicKey);
+    }
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [walletConnected]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white">
       <div className="w-[360px]">
+        
+        {showQR && (
+  <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+    <div className="bg-[#0f172a] p-6 rounded-2xl text-center">
+
+      <h2 className="mb-4">Scan QRIS</h2>
+
+      <img
+        src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=chargeflow-demo"
+        className="mx-auto"
+      />
+
+      <p className="text-gray-400 text-sm mt-3">
+        Bayar untuk melanjutkan charging
+      </p>
+
+      <button
+        onClick={()=>{
+          setShowQR(false);
+          setStep(3);
+          setCharging(true);
+        }}
+        className="mt-4 w-full py-2 bg-cyan-400 text-black rounded-xl"
+      >
+        Simulate Paid
+      </button>
+
+    </div>
+  </div>
+)}
+          {/* 🔥 STEP INDICATOR TARO DI SINI */}
+      <div className="flex justify-center gap-6 text-sm mb-6">
+        {["scan", "connect & Pay", "Charging"].map((s, i) => (
+          <div
+            key={i}
+            className={`flex items-center gap-2 ${
+              step === i + 1 ? "text-cyan-400" : "text-gray-500"
+            }`}
+          >
+            <div className="w-6 h-6 rounded-full border flex items-center justify-center">
+              {i + 1}
+            </div>
+            {s}
+          </div>
+        ))}
+      </div>
+
    
         {/* STEP 1 🔥 CAMERA DEMO */}
         {step===1 && (
@@ -283,11 +371,24 @@ const short = walletAddress
 
     
         {/* STEP 2 */}
-{step===2 && (
+        {step===2 && (
   <>
     <h2 className="text-center mb-6 flex justify-center gap-2 text-lg font-semibold">
       <CreditCard className="text-cyan-400"/> Payment
     </h2>
+    {/* 🔥 WALLET PANEL TARO DI SINI */}
+    {walletConnected && (
+      <div className="bg-white/5 p-3 rounded-xl mb-4 border border-white/10">
+        <p className="text-xs text-gray-400">Wallet</p>
+        <p className="font-semibold">{short}</p>
+
+        <div className="flex justify-between text-sm mt-2">
+          <span>{balance} SOL</span>
+          <span>{usdcBalance} USDC</span>
+        </div>
+      </div>
+    )}
+
 
     {/* MODE SWITCH */}
     <div className="flex bg-white/5 rounded-2xl p-1 mb-6 backdrop-blur-xl border border-white/10">
@@ -402,7 +503,9 @@ const short = walletAddress
         <div className="flex items-center gap-3">
           <Wallet size={18} className="text-cyan-400"/>
           <span>
-  {walletConnected ? `Disconnect (${short})` : "Connect Wallet"}
+  {walletConnected
+    ? `Disconnect (${short}) • ${balance} SOL`
+    : "Connect Wallet"}
 </span>
         </div>
         {method==="wallet" && <span className="text-cyan-400">●</span>}
@@ -537,49 +640,58 @@ const short = walletAddress
       <div className="w-40 h-40 bg-green-400/20 blur-3xl rounded-full animate-pulse"/>
     </div>
 
-    {/* ICON */}
-    <div className="relative flex justify-center mb-4">
-      <div className="w-20 h-20 rounded-full flex items-center justify-center
-        bg-gradient-to-br from-green-400/20 to-emerald-500/20
-        shadow-[0_0_60px_rgba(34,197,94,0.6)]">
+    {/* 🔥 ICON */}
+<div className="flex justify-center mb-6">
+  <div className="p-6 rounded-full bg-green-500/10 
+    shadow-[0_0_40px_rgba(34,197,94,0.4)]">
+    <CheckCircle className="w-14 h-14 text-green-400" />
+  </div>
+</div>
 
-        <CheckCircle size={40} className="text-green-400 animate-[scaleIn_0.4s_ease]"/>
-      </div>
+{/* 🔥 TITLE */}
+<h2 className="text-3xl font-bold text-green-400 tracking-tight text-center">
+  Charging Complete
+</h2>
+
+<p className="text-gray-400 text-sm mt-2 text-center">
+  Energy delivered successfully ⚡
+</p>
+
+{/* 🔥 SUMMARY CARD */}
+<div className="mt-8 bg-white/5 border border-white/10 
+  rounded-2xl p-5 backdrop-blur-md shadow-xl">
+
+  <div className="space-y-4 text-sm">
+
+    {/* ENERGY */}
+    <div className="flex justify-between items-center">
+      <span className="text-gray-400">Energy</span>
+      <span className="text-white font-semibold text-base">
+        {kwh} kWh
+      </span>
     </div>
 
-    {/* TITLE */}
-    <h2 className="text-3xl font-bold text-green-400 tracking-tight">
-      Charging Complete
-    </h2>
-
-    <p className="text-gray-400 text-sm mt-1">
-      Energy delivered successfully ⚡
-    </p>
-
-    {/* SUMMARY GLASS */}
-    <div className="mt-6 bg-gradient-to-br from-white/5 to-white/0 
-      border border-white/10 rounded-2xl p-5 backdrop-blur-xl
-      shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-
-      <div className="flex justify-between text-sm">
-        <span className="text-gray-400">Energy</span>
-        <span className="font-semibold">{kwh} kWh</span>
-      </div>
-
-      <div className="flex justify-between text-sm mt-3">
-        <span className="text-gray-400">Total Cost</span>
-        <span className="font-semibold">Rp {cost}</span>
-      </div>
-
-      <div className="flex justify-between text-sm mt-3 text-cyan-400">
-        <span>Escrow Used</span>
-        <span className="font-semibold">
-          {((kwh * 2500)/15500).toFixed(3)} USDC
-        </span>
-      </div>
-
+    {/* COST */}
+    <div className="flex justify-between items-center">
+      <span className="text-gray-400">Total Cost</span>
+      <span className="text-white font-semibold text-base">
+        Rp {cost}
+      </span>
     </div>
 
+    {/* DIVIDER */}
+    <div className="border-t border-white/10"></div>
+
+    {/* ESCROW */}
+    <div className="flex justify-between items-center">
+      <span className="text-cyan-400">Escrow Used</span>
+      <span className="text-cyan-400 font-semibold text-base">
+        {((kwh * 2500)/15500).toFixed(3)} USDC
+      </span>
+    </div>
+
+  </div>
+</div>  
     {/* BUTTON */}
     <div className="mt-6 space-y-3">
 

@@ -19,6 +19,19 @@ export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
   const [feature, setFeature] = useState(null);
 
+  const [demoKwh, setDemoKwh] = useState(0);
+
+useEffect(() => {
+  const i = setInterval(() => {
+    setDemoKwh(v => {
+      if (v >= 1.5) return v;   // stop di 1.5 kWh
+      return +(v + 0.05).toFixed(2);
+    });
+  }, 800);
+
+  return () => clearInterval(i);
+}, []);
+
   /* ========================= */
   /* ⚡ CURSOR LIGHTNING */
   /* ========================= */
@@ -57,6 +70,7 @@ export default function Home() {
   }, []);
 
   return (
+    
     <div className="relative min-h-screen text-white overflow-hidden">
 
       {/* BG (SAFE) */}
@@ -169,28 +183,29 @@ export default function Home() {
             <div className="absolute bottom-16 right-6 bg-white/10 backdrop-blur-xl p-5 rounded-xl border border-white/20 w-[260px]">
 
               <div className="flex justify-between text-sm">
-                <div className="flex gap-2 items-center">
-                  <Zap size={16} className="text-cyan-400" />
-                  Live Charging
-                </div>
+                <div className="flex items-center gap-2 text-sm">
+                    <Zap className="w-4 h-4 text-green-400 animate-pulse" />
+                   <span className="font-medium">Live Charging</span>
+               </div>
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
               </div>
 
-              <p className="text-gray-400 text-sm mt-2">
-                Waiting session...
+              <p className="text-gray-400 text-xs mt-2">
+                Charging in progress
               </p>
 
-              <h2 className="text-2xl font-bold mt-2 text-cyan-400">
-                0.00 kWh
+              <h2 className="text-3xl font-bold mt-1 text-cyan-400">
+              {demoKwh} kWh
               </h2>
 
-              <p className="text-gray-400 text-sm mt-1">
-                IDR → USDC
+              <p className="text-gray-400 text-xs mt-1 tracking-wide">
+               IDR → USDC
               </p>
 
-              <div className="mt-2 text-sm text-gray-300">
-                ⚡ Ready to start
-              </div>
+             <div className="flex items-center gap-2 text-sm text-gray-300">
+           <Zap className="w-4 h-4 text-green-400 animate-pulse" />
+             Ready to start
+            </div>
 
             </div>
 
