@@ -1,6 +1,7 @@
 // --- IMPORT (SAMA PERSIS PUNYA KAMU) ---
 import { useEffect, useState } from "react";
  import { getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+ import { AlertTriangle, X, Power } from "lucide-react";
 import {
   Connection,
   clusterApiUrl,
@@ -97,10 +98,34 @@ const sendUSDC = async (provider, amount) => {
 /* ================= COMPONENT ================= */
 
 export default function Demo() {
+  const [charging, setCharging] = useState(false);
+
+  // ✅ TARO DI SINI
+ const stopCharging = () => {
+  setStopping(true);
+
+  setTimeout(() => {
+    setCharging(false);
+
+    const used = (kwh * price) / 15500;
+    const refund = escrow - used;
+
+    setRefundValue(`Refund ${Math.max(refund, 0).toFixed(3)} USDC`);
+    setShowPopup(true);
+
+    setStep(4);
+    setStopping(false);
+  }, 800); // biar ada feel loading dikit
+};
+
+  useEffect(() => {
+    
+  }, []);
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
   const [method, setMethod] = useState(null);
+  const [showStopModal, setShowStopModal] = useState(false);
 
   const [battery, setBattery] = useState(() => Math.floor(Math.random()*40)+20);
   const [targetBattery, setTargetBattery] = useState(80);
@@ -112,6 +137,7 @@ export default function Demo() {
   const [walletAddress, setWalletAddress] = useState("");
   const [balance, setBalance] = useState(0);
 const [usdcBalance, setUsdcBalance] = useState(0);
+  
 
 const fetchBalance = async (pubkey) => {
   const connection = new Connection(clusterApiUrl("devnet"));
@@ -139,9 +165,9 @@ const fetchUSDC = async (pubkey) => {
     setUsdcBalance(0);
   }
 };
+const [stopping, setStopping] = useState(false);
 
   const [escrow, setEscrow] = useState(0);
-  const [charging, setCharging] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
   const [showPopup, setShowPopup] = useState(false);
@@ -569,11 +595,11 @@ const short = walletAddress
     </button>
   </>
 )}
-        {/* STEP 3 */}
-{step===3 && (
+{/* STEP 3 */}
+{step === 3 && (
   <div className="text-center">
 
-    {/* ICON GLOW */}
+    {/* ICON */}
     <div className="mb-4 flex justify-center">
       <div className="w-16 h-16 flex items-center justify-center rounded-full 
         bg-gradient-to-r from-cyan-400/20 to-purple-500/20 
@@ -582,8 +608,8 @@ const short = walletAddress
       </div>
     </div>
 
-    {/* ENERGY NUMBER */}
-    <h1 className="text-5xl font-bold tracking-tight animate-pulse">
+    {/* ENERGY */}
+    <h1 className="text-5xl font-bold tracking-tight">
       {kwh} kWh
     </h1>
 
@@ -592,34 +618,28 @@ const short = walletAddress
     </p>
 
     {/* STATUS */}
-   <div className="flex items-center justify-center gap-2 mt-3 text-cyan-400">
+    <div className="flex items-center justify-center gap-2 mt-3 text-cyan-400">
+      <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm tracking-wide">
+        Charging in progress...
+      </span>
+    </div>
 
-  <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"/>
-
-  <span className="text-sm tracking-wide">
-    Charging in progress...
-  </span>
-
-</div>
-    {/* PROGRESS BAR PREMIUM */}
+    {/* PROGRESS */}
     <div className="mt-6 relative">
-
       <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full 
-          bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500
-          animate-[pulse_2s_infinite]"
-          style={{ width: `${(battery/targetBattery)*100}%` }}
+          bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500"
+          style={{ width: `${(battery / targetBattery) * 100}%` }}
         />
       </div>
 
-      {/* GLOW OVERLAY */}
       <div
         className="absolute top-0 h-3 rounded-full blur-md opacity-60
         bg-gradient-to-r from-cyan-400 to-purple-500"
-        style={{ width: `${(battery/targetBattery)*100}%` }}
+        style={{ width: `${(battery / targetBattery) * 100}%` }}
       />
-
     </div>
 
     {/* PERCENT */}
@@ -627,11 +647,23 @@ const short = walletAddress
       {battery}% / {targetBattery}%
     </p>
 
-  </div>
-)}
+    {/* STOP */}
+<button
+  onClick={() => setShowStopModal(true)}
+  disabled={stopping}
+  className="mt-6 w-full py-3 rounded-full 
+  bg-red-500/20 text-red-400 border border-red-500/30
+  hover:bg-red-500/30 transition flex items-center justify-center gap-2
+  disabled:opacity-50"
+>
+  <Power size={16}/>
+  {stopping ? "Stopping..." : "Stop Charging"}
+</button>
 
-        {/* STEP 4 🔥 DONE FIX */}
-    {/* STEP 4 💎 ULTRA FINISH */}
+  </div>
+  
+)}
+  {/* STEP 4 💎 ULTRA FINISH */}
 {step===4 && (
   <div className="text-center relative">
 
@@ -740,7 +772,64 @@ const short = walletAddress
 
   </div>
 )}
+{showStopModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+
+    <div className="bg-[#0f172a] border border-white/10 rounded-2xl p-6 w-[320px] text-center shadow-2xl">
+
+      {/* ICON */}
+      <div className="flex justify-center mb-4">
+        <div className="w-14 h-14 flex items-center justify-center rounded-full 
+          bg-red-500/10 border border-red-500/20">
+          <AlertTriangle className="text-red-400" size={26}/>
+        </div>
+      </div>
+
+      {/* TITLE */}
+      <h2 className="text-lg font-semibold text-white">
+        Stop Charging?
+      </h2>
+
+      <p className="text-sm text-gray-400 mt-1 mb-5">
+        Sisa saldo akan direfund ke wallet kamu
+      </p>
+
+      {/* BUTTON */}
+      <div className="flex gap-3">
+
+        <button
+          onClick={() => setShowStopModal(false)}
+          className="flex-1 py-2 rounded-xl 
+          bg-white/5 text-gray-300 border border-white/10
+          hover:bg-white/10 transition flex items-center justify-center gap-2"
+        >
+          <X size={16}/>
+          Cancel
+        </button>
+
+        <button
+          onClick={() => {
+            setShowStopModal(false);
+            stopCharging();
+          }}
+          className="flex-1 py-2 rounded-xl 
+          bg-gradient-to-r from-red-500 to-red-600 
+          text-white font-semibold 
+          hover:scale-105 active:scale-95 transition 
+          flex items-center justify-center gap-2"
+        >
+          <Power size={16}/>
+          Stop
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
       </div>
     </div>
   );
+
 }

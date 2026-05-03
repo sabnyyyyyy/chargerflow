@@ -193,6 +193,25 @@ useEffect(() => {
               <p className="text-gray-400 text-xs mt-2">
                 Charging in progress
               </p>
+              {/* progress bar */}
+<div className="mt-6">
+  <div className="w-full h-2 bg-gray-700 rounded-full">
+    <div
+      className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full"
+      style={{ width: `${(battery / safeTarget) * 100}%` }}
+    />
+  </div>
+</div>
+
+{/* 🔥 STOP BUTTON TARO DI SINI */}
+<button
+  onClick={stopCharging}
+  className="mt-6 px-6 py-3 rounded-full 
+  bg-red-500/10 text-red-400 border border-red-500/30
+  hover:bg-red-500/20 transition"
+>
+  ⛔ Stop Charging
+</button>
 
               <h2 className="text-3xl font-bold mt-1 text-cyan-400">
               {demoKwh} kWh
