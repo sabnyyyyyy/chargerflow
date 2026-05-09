@@ -1,116 +1,121 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* RESET */
+@import "leaflet/dist/leaflet.css";
+/* ========================= */
+/* 🌍 GLOBAL RESET */
+/* ========================= */
 body {
-  margin: 0;
-  background: #020617;
-  font-family: 'Inter', sans-serif;
-  overflow-x: hidden;
+margin: 0;
+background: #020617;
+font-family: 'Inter', sans-serif;
+overflow-x: hidden;
 }
 
 #root {
-  width: 100%;
-  margin: 0;
-  padding: 0;
+width: 100%;
+margin: 0;
+padding: 0;
 }
 
 /* ========================= */
 /* 🚗 CAR ANIMATION */
 /* ========================= */
 @keyframes carMove {
-  0% { transform: translateX(0px); }
-  50% { transform: translateX(-25px); }
-  100% { transform: translateX(0px); }
+0%, 100% {
+transform: translateX(0);
+}
+50% {
+transform: translateX(-25px);
+}
 }
 
 .car-animate {
-  animation: carMove 6s ease-in-out infinite;
+animation: carMove 6s ease-in-out infinite;
 }
 
 /* ========================= */
-/* ⚡ LIGHTNING TRAIL */
+/* ⚡ LIGHTNING EFFECT */
 /* ========================= */
 .lightning-line {
-  position: fixed;
-  height: 2px;
-  background: linear-gradient(90deg, #a855f7, #22d3ee);
-  box-shadow: 0 0 8px #22d3ee, 0 0 16px #a855f7;
-  border-radius: 999px;
-  pointer-events: none;
-  z-index: 9999;
-  transform-origin: left center;
-  animation: fadeOut 0.2s linear forwards;
+position: fixed;
+height: 2px;
+background: linear-gradient(90deg, #a855f7, #22d3ee);
+box-shadow: 0 0 8px #22d3ee, 0 0 16px #a855f7;
+border-radius: 999px;
+pointer-events: none;
+z-index: 9999;
+transform-origin: left center;
+animation: fadeOut 0.2s linear forwards;
 }
 
-/* ========================= */
-/* 🔥 SPARK EFFECT */
-/* ========================= */
+/* ✨ Spark */
 .spark {
-  position: fixed;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #22d3ee, transparent);
-  pointer-events: none;
-  z-index: 9999;
-  animation: sparkFade 0.4s ease-out forwards;
+position: fixed;
+width: 6px;
+height: 6px;
+border-radius: 50%;
+background: radial-gradient(circle, #22d3ee, transparent);
+pointer-events: none;
+z-index: 9999;
+animation: sparkFade 0.4s ease-out forwards;
 }
 
 /* ========================= */
-/* ✨ LIGHTNING ANIM */
+/* ✨ KEYFRAMES */
 /* ========================= */
 @keyframes fadeOut {
-  to {
-    opacity: 0;
-  }
+to {
+opacity: 0;
+}
 }
 
 @keyframes sparkFade {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(2.5);
-    opacity: 0;
-  }
+0% {
+transform: scale(1);
+opacity: 1;
+}
+100% {
+transform: scale(2.5);
+opacity: 0;
+}
 }
 
 /* ========================= */
-/* 🚀 FEATURE ANIMATION */
+/* 🚀 FEATURE CARD */
 /* ========================= */
 @keyframes floatUp {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
-  100% { transform: translateY(0px); }
+0%, 100% {
+transform: translateY(0);
+}
+50% {
+transform: translateY(-6px);
+}
 }
 
 .feature-card {
-  animation: floatUp 4s ease-in-out infinite;
-  transition: all 0.3s ease;
+animation: floatUp 4s ease-in-out infinite;
+transition: all 0.3s ease;
 }
 
-/* biar ga barengan */
+/* delay biar nggak barengan */
 .feature-card:nth-child(2) { animation-delay: 0.2s; }
 .feature-card:nth-child(3) { animation-delay: 0.4s; }
 .feature-card:nth-child(4) { animation-delay: 0.6s; }
 
-/* ========================= */
-/* ✨ HOVER GLOW (PREMIUM) */
-/* ========================= */
+/* hover effect */
 .feature-card:hover {
-  transform: translateY(-8px) scale(1.05);
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3),
-              0 0 40px rgba(168, 85, 247, 0.2);
+transform: translateY(-8px) scale(1.05);
+box-shadow:
+0 0 20px rgba(34, 211, 238, 0.3),
+0 0 40px rgba(168, 85, 247, 0.2);
 }
 
 /* ========================= */
-/* 💎 GLASS EFFECT BOOST */
+/* 💎 GLASS EFFECT */
 /* ========================= */
 .glass {
-  backdrop-filter: blur(20px);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+backdrop-filter: blur(20px);
+background: rgba(255, 255, 255, 0.05);
+border: 1px solid rgba(255, 255, 255, 0.1);
 }

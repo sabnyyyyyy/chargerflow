@@ -1,5 +1,7 @@
 import { Buffer } from "buffer";
 import process from "process";
+import "leaflet/dist/leaflet.css";
+import "@fontsource/sora";
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

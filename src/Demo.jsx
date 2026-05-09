@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
  import { getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
  import { AlertTriangle, X, Power } from "lucide-react";
+ import bs58 from "bs58";
 import {
   Connection,
   clusterApiUrl,
@@ -32,10 +33,10 @@ const USDC_MINT = new PublicKey(
 );
 
 // 🔴 GANTI WALLET INI
-let RECEIVER;
+let ESCROW_WALLET;
 
 try {
- RECEIVER = new PublicKey(
+ ESCROW_WALLET = new PublicKey(
   "HEC7zBuCKG55Z7g8qerXvn823wFeA1VhcENoRM4dJ3qA"
 );
 } catch {
@@ -53,7 +54,7 @@ const sendUSDC = async (provider, amount) => {
 
   const toTokenAccount = await getAssociatedTokenAddress(
     USDC_MINT,
-    RECEIVER
+    ESCROW_WALLET
   );
 
   const instructions = [];
@@ -65,7 +66,7 @@ const sendUSDC = async (provider, amount) => {
       createAssociatedTokenAccountInstruction(
         sender,
         toTokenAccount,
-        RECEIVER,
+        ESCROW_WALLET,
         USDC_MINT
       )
     );
@@ -102,13 +103,52 @@ export default function Demo() {
 
   // ✅ TARO DI SINI
  const stopCharging = () => {
+
   setStopping(true);
 
-  setTimeout(() => {
-    setCharging(false);
+  setTimeout(async () => {
 
-    const used = (kwh * price) / 15500;
-    const refund = escrow - used;
+    const used =
+  Math.min(
+    (kwh * price) / 15500,
+    escrow
+  );
+
+const refund =
+  Math.max(
+    escrow - used,
+    0
+  );
+   
+    await fetch(
+      "http://127.0.0.1:8080/api/v1/charging/stop",
+      {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+
+          Authorization:
+            `Bearer ${localStorage.getItem("token")}`
+        },
+
+        body: JSON.stringify({
+
+  wallet_address:
+    walletAddress,
+
+  used_amount:
+    used,
+
+  refund_amount:
+    refund
+})
+
+      }
+    );
+
+    setCharging(false);
 
     setRefundValue(`Refund ${Math.max(refund, 0).toFixed(3)} USDC`);
     setShowPopup(true);
@@ -199,12 +239,85 @@ const short = walletAddress
   const getProvider = () => window?.phantom?.solana;
 
   const connectWallet = async () => {
+
   const provider = getProvider();
+
   const res = await provider.connect();
 
   setWalletConnected(true);
-  setWalletAddress(res.publicKey.toString());
+
+  setWalletAddress(
+    res.publicKey.toString()
+  );
+
   fetchBalance(res.publicKey);
+
+  // 🔥 GET NONCE
+  const nonceRes = await fetch(
+    "http://127.0.0.1:8080/api/v1/auth/nonce"
+  );
+
+  const nonce = await nonceRes.text();
+
+  // 🔥 SIGN MESSAGE
+  const encodedMessage =
+    new TextEncoder().encode(nonce);
+
+  const signedMessage =
+    await provider.signMessage(
+      encodedMessage,
+      "utf8"
+    );
+
+  // 🔥 SEND VERIFY
+  const verifyRes = await fetch(
+    "http://127.0.0.1:8080/api/v1/auth/verify",
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+
+        wallet:
+          provider.publicKey.toString(),
+
+        signature:
+          bs58.encode(
+            signedMessage.signature
+          ),
+
+        nonce
+      })
+    }
+  );
+
+  // 🔥 GET JWT
+  const data = await verifyRes.json();
+
+  console.log(data.token);
+
+  // 🔥 SAVE JWT
+  localStorage.setItem(
+    "token",
+    data.token
+  );
+  const profileRes = await fetch(
+  "http://127.0.0.1:8080/api/v1/auth/profile",
+  {
+    headers: {
+      Authorization:
+        `Bearer ${data.token}`
+    }
+  }
+);
+
+const profileData =
+  await profileRes.text();
+
+console.log(profileData);
 };
 
   const safeTarget = Math.max(targetBattery, battery);
@@ -219,10 +332,9 @@ const short = walletAddress
     return;
   }
 
-  // 🔥 QRIS HARUS DI CEK DULU
   if (method === "qris") {
     setShowQR(true);
-    return; // ⛔ STOP, jangan lanjut ke Phantom
+    return;
   }
 
   if (!walletConnected) {
@@ -232,73 +344,136 @@ const short = walletAddress
   }
 
   try {
+
     const provider = getProvider();
+
     setTxStatus("pending");
 
     const escrowAmount = total / 15500;
 
-    // 🔥 INI CUMA UNTUK WALLET
-    await sendUSDC(provider, escrowAmount);
+    // 🔥 SEND USDC
+    await sendUSDC(
+      provider,
+      escrowAmount
+    );
+
     fetchBalance(provider.publicKey);
+
     fetchUSDC(provider.publicKey);
 
+    // 🔥 SAVE SESSION TO BACKEND
+    console.log("CALLING START API");
+    await fetch(
+      "http://127.0.0.1:8080/api/v1/charging/start",
+      {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+
+          Authorization:
+            `Bearer ${localStorage.getItem("token")}`
+        },
+
+        body: JSON.stringify({
+
+          wallet_address:
+            provider.publicKey.toString(),
+
+          charger_id:
+            "CHARGER-001",
+
+          escrow_amount:
+            escrowAmount
+        })
+      }
+    );
+
     setEscrow(escrowAmount);
+
     setTxStatus("success");
 
     setCharging(true);
+
     setStep(3);
 
   } catch (err) {
+
     console.error("ERROR FULL:", err);
 
     let message = "Transaksi gagal";
 
     if (err.message?.includes("insufficient funds")) {
       message = "Saldo USDC tidak cukup";
-    } else if (err.message?.includes("TokenAccountNotFoundError")) {
-      message = "Wallet belum siap (USDC belum pernah diterima)";
-    } else if (err.message?.includes("invalid account data")) {
-      message = "Error akun token (coba refresh / ganti wallet)";
-    } else if (err.message?.includes("User rejected")) {
-      message = "Transaksi dibatalkan user";
-    } else if (err.message) {
+    }
+
+    else if (
+      err.message?.includes(
+        "TokenAccountNotFoundError"
+      )
+    ) {
+      message =
+        "Wallet belum siap";
+    }
+
+    else if (
+      err.message?.includes(
+        "invalid account data"
+      )
+    ) {
+      message =
+        "Error akun token";
+    }
+
+    else if (
+      err.message?.includes(
+        "User rejected"
+      )
+    ) {
+      message =
+        "Transaksi dibatalkan";
+    }
+
+    else if (err.message) {
       message = err.message;
     }
 
     setRefundValue(message);
+
     setShowPopup(true);
   }
 };
   useEffect(() => {
-    if (!charging) return;
 
-    const i = setInterval(() => {
-      setBattery(b => {
-        const next = b + 1;
+  if (!charging) return;
 
-        if (next >= safeTarget) {
-          clearInterval(i);
+  const i = setInterval(() => {
 
-          const used = (kwh * price) / 15500;
-          const refund = escrow - used;
+    setBattery(b => {
 
-          setRefundValue(`Refund ${Math.max(refund,0).toFixed(3)} USDC`);
-          setShowPopup(true);
+      const next = b + 1;
 
-          setStep(4);
-          setCharging(false);
-        }
+      if (next >= safeTarget) {
 
-        return next;
-      });
+        clearInterval(i);
 
-      setKwh(k => +(k + 0.25).toFixed(2));
-      setCost(c => c + 600);
+        stopCharging();
+      }
 
-    }, 600);
+      return next;
+    });
 
-    return () => clearInterval(i);
-  }, [charging, kwh, escrow]);
+    setKwh(k => +(k + 0.25).toFixed(2));
+
+    setCost(c => c + 600);
+
+  }, 600);
+
+  return () => clearInterval(i);
+
+}, [charging, kwh, escrow]);
+
   useEffect(() => {
   if (!walletConnected) return;
 
