@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import Home from "./Home";
 import MapPage from "./Map";
 import Demo from "./Demo";
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
 
       <Routes>
 
@@ -13,7 +13,7 @@ function App() {
           path="/"
           element={
             <Home
-              onStartCharging={() => window.location.href = "/demo"}
+              onStartCharging={() => window.location.href = "/#/demo"}
             />
           }
         />
@@ -24,7 +24,7 @@ function App() {
 
       </Routes>
 
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
