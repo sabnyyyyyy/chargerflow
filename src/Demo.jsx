@@ -33,15 +33,9 @@ const USDC_MINT = new PublicKey(
 );
 
 // 🔴 GANTI WALLET INI
-let ESCROW_WALLET;
-
-try {
- ESCROW_WALLET = new PublicKey(
+const ESCROW_WALLET = new PublicKey(
   "HEC7zBuCKG55Z7g8qerXvn823wFeA1VhcENoRM4dJ3qA"
 );
-} catch {
-  console.error("Invalid wallet address");
-}
 
 const sendUSDC = async (provider, amount) => {
   const connection = new Connection(clusterApiUrl("devnet"));
